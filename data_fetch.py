@@ -1,5 +1,5 @@
 from google import genai
-from pydantic import BaseModel
+from pydantic import BaseModel,Validator
 from datetime import time
 from typing import Dict, List, Literal
 import requests
@@ -27,7 +27,7 @@ class Employee(BaseModel):
                 raise ValueError("Each time slot must contain exactly 2 time values (HH:MM:SS).")
         return shift
     
-client = genai.Client(api_key="GEMINI_STUDIO_KEY")
+client = genai.Client(api_key="API_KEY")
 
 response = client.models.generate_content(
     model='gemini-2.0-flash',
