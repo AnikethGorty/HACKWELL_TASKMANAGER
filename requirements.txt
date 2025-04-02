@@ -1,0 +1,6 @@
+requests
+pytest
+numpy
+pandas
+google-generativeai
+matplotlib
