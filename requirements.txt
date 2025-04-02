@@ -2,8 +2,7 @@ requests
 pytest
 numpy
 pandas
-google-generativeai
 matplotlib
-pydantic
 typing
 datetime
+faker

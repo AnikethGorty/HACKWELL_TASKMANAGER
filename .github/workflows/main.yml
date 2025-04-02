@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      API_KEY: ${{ secrets.GEMINI_STUDIO_KEY}}  # Secret for API Key
+      API_KEY: ${{ secrets.HUGGINGFACE_TOKEN}}  # Secret for API Key
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
