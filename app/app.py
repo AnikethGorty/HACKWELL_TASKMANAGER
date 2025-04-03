@@ -6,7 +6,7 @@ socketio = SocketIO(app)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html')  # Flask will look in the templates folder
 
 @socketio.on('message')
 def handle_message(message):
