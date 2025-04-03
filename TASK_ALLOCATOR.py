@@ -172,7 +172,9 @@ def check_employee_availability(employee, time_windows):
         'is_available': len(unavailable_periods) == 0,
         'unavailable_periods': unavailable_periods if unavailable_periods else None,
         'total_available_hours': round(total_available_hours, 2)
-    }    """Check if employee is available during required time windows"""
+    }    
+    
+    """Check if employee is available during required time windows"""
     unavailable_periods = []
     total_available_hours = 0
     
