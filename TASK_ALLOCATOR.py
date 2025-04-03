@@ -7,26 +7,47 @@ app = Flask(__name__)
 
 TASKS_FILE = 'tasks.json'
 
-def initialize_tasks_file():
+def ensure_tasks_file():
     """Ensure tasks file exists and is valid"""
-    if not os.path.exists(TASKS_FILE):
-        with open(TASKS_FILE, 'w') as f:
-            json.dump([], f)
+    try:
+        # Create file if it doesn't exist
+        if not os.path.exists(TASKS_FILE):
+            with open(TASKS_FILE, 'w') as f:
+                json.dump([], f)
+            return True
+        
+        # Verify file has valid content
+        with open(TASKS_FILE, 'r') as f:
+            content = f.read().strip()
+            if not content:  # If empty, initialize with empty array
+                with open(TASKS_FILE, 'w') as f:
+                    json.dump([], f)
+            else:
+                json.loads(content)  # Test if valid JSON
+        return True
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Error initializing tasks file: {e}")
+        # If corrupted, recreate the file
+        try:
+            with open(TASKS_FILE, 'w') as f:
+                json.dump([], f)
+            return True
+        except IOError:
+            return False
 
 def load_tasks():
     """Safely load tasks from JSON file"""
+    if not ensure_tasks_file():
+        return []
+    
     try:
-        initialize_tasks_file()
-        
         with open(TASKS_FILE, 'r') as f:
-            content = f.read()
-            if not content.strip():  # Handle empty file
+            content = f.read().strip()
+            if not content:
                 return []
             return json.loads(content)
     except (json.JSONDecodeError, IOError) as e:
         print(f"Error loading tasks: {e}")
-        # Reinitialize the file if corrupted
-        initialize_tasks_file()
         return []
 
 def save_tasks(tasks):
@@ -37,18 +58,6 @@ def save_tasks(tasks):
         return True
     except (IOError, TypeError) as e:
         print(f"Error saving tasks: {e}")
-        return False
-
-def validate_time_format(time_str):
-    """Validate YYYY:MM:DD:HH:MM format"""
-    try:
-        parts = list(map(int, time_str.split(':')))
-        if len(parts) != 5:
-            return False
-        datetime(year=parts[0], month=parts[1], day=parts[2], 
-                hour=parts[3], minute=parts[4])
-        return True
-    except (ValueError, IndexError):
         return False
 
 @app.route('/')
@@ -62,11 +71,10 @@ def handle_tasks():
         return jsonify({"tasks": tasks})
     
     elif request.method == 'POST':
+        if not request.is_json:
+            return jsonify({"status": "error", "message": "Content-Type must be application/json"}), 415
+        
         try:
-            # Ensure we have JSON data
-            if not request.is_json:
-                return jsonify({"status": "error", "message": "Request must be JSON"}), 400
-                
             task_data = request.get_json()
             
             # Validate required fields
@@ -74,14 +82,11 @@ def handle_tasks():
             for field in required_fields:
                 if field not in task_data or not task_data[field]:
                     return jsonify({"status": "error", "message": f"Missing required field: {field}"}), 400
-
-            # Validate time formats
-            if not validate_time_format(task_data['startTime']):
-                return jsonify({"status": "error", "message": "Invalid start time format. Use YYYY:MM:DD:HH:MM"}), 400
-                
-            if not validate_time_format(task_data['endTime']):
-                return jsonify({"status": "error", "message": "Invalid end time format. Use YYYY:MM:DD:HH:MM"}), 400
-
+            
+            # Validate skills
+            if not isinstance(task_data['skillsRequired'], list):
+                return jsonify({"status": "error", "message": "skillsRequired must be an array"}), 400
+            
             # Load existing tasks
             tasks = load_tasks()
             
@@ -99,11 +104,10 @@ def handle_tasks():
                 "task_id": task_data['id'],
                 "message": "Task created successfully"
             })
-
+            
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    # Initialize tasks file on startup
-    initialize_tasks_file()
+    ensure_tasks_file()  # Initialize on startup
     app.run(debug=True)
