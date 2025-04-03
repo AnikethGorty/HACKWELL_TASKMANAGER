@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Allocator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <div class="welcome-screen">
+            <h1>Task Allocator</h1>
+            <label for="name">Enter Your Name</label>
+            <input type="text" id="name" placeholder="Your Name">
+            <button id="proceed-btn">Proceed</button>
+        </div>
+
+        <div class="task-allocator-screen" style="display: none;">
+            <h1>Welcome, <span id="user-name"></span></h1>
+            <label for="task-name">Task Name</label>
+            <input type="text" id="task-name" placeholder="Task Name">
+
+            <label for="skills">Skills (comma-separated)</label>
+            <input type="text" id="skills" placeholder="Skills">
+
+            <label for="deadline">Deadline</label>
+            <input type="date" id="deadline">
+
+            <button id="send-task-btn">Send Task to Server</button>
+
+            <h3 id="server-response">Server Response: No response yet</h3>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/websocket/1.0.0/websocket.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
