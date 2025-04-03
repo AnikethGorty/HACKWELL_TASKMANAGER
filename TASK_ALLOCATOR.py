@@ -345,28 +345,7 @@ def generate_top_candidates(all_results, output_file='top_candidates.json'):
     print(f"Top candidates saved to {output_file}")
     return top_candidates
 
-# Add this at the end of your main() function, before saving results:
-top_candidates = generate_top_candidates(all_results)
 
-# This will create a new file 'top_candidates.json' with structure:
-# [
-#   {
-#     "task_id": 1,
-#     "task_name": "Task Name",
-#     "required_skills": ["Skill1", "Skill2"],
-#     "top_candidates": [
-#       {
-#         "employee_id": "E001",
-#         "skill_sum": 17,
-#         "matched_skills": {"Skill1": 8, "Skill2": 9},
-#         "availability": {...},
-#         ...
-#       },
-#       ... (top 5)
-#     ]
-#   },
-#   ... (all tasks)
-# ]
 def main():
     # Load and clear tasks
     tasks = load_and_clear_tasks()
@@ -468,7 +447,28 @@ def main():
     # Generate top candidates file
     top_candidates_file = f'top_candidates_{timestamp}.json'
     generate_top_candidates(all_results, top_candidates_file)
+    # Add this at the end of your main() function, before saving results:
+    top_candidates = generate_top_candidates(all_results)
 
+# This will create a new file 'top_candidates.json' with structure:
+# [
+#   {
+#     "task_id": 1,
+#     "task_name": "Task Name",
+#     "required_skills": ["Skill1", "Skill2"],
+#     "top_candidates": [
+#       {
+#         "employee_id": "E001",
+#         "skill_sum": 17,
+#         "matched_skills": {"Skill1": 8, "Skill2": 9},
+#         "availability": {...},
+#         ...
+#       },
+#       ... (top 5)
+#     ]
+#   },
+#   ... (all tasks)
+# ]
 
 if __name__ == '__main__':
     main()
