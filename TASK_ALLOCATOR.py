@@ -3,7 +3,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 import os
-from datetime import datetime
+from datetime import datetime,time,timedelta
 
 # Initialize model
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
@@ -15,6 +15,111 @@ skillset = [
     "HVAC", "Blueprint-Reading", "3D-Printing", "Quality-Control", "Robotics",
     "Laser-Cutting", "Carpentry", "Soldering", "Networking", "Motor-Repair"
 ]
+
+def calculate_daily_time_windows(start_time_str, end_time_str):
+    """
+    Calculate exact time windows for each day a task spans
+    Returns: List of tuples (day_name, day_date, start_time, end_time)
+    """
+    try:
+        # Parse input times
+        start_time = datetime.strptime(start_time_str, "%Y:%m:%d:%H:%M")
+        end_time = datetime.strptime(end_time_str, "%Y:%m:%d:%H:%M")
+        
+        if start_time >= end_time:
+            return []
+
+        time_windows = []
+        current_day = start_time.date()
+        
+        while current_day <= end_time.date():
+            day_name = current_day.strftime('%A').lower()
+            day_date = current_day.strftime('%Y-%m-%d')
+            
+            # Calculate day boundaries
+            day_start = datetime.combine(current_day, time.min)
+            day_end = datetime.combine(current_day, time.max)
+            
+            # Determine actual window for this day
+            window_start = max(start_time, day_start)
+            window_end = min(end_time, day_end)
+            
+            time_windows.append({
+                'day_name': day_name,
+                'day_date': day_date,
+                'start_time': window_start.time().strftime('%H:%M'),
+                'end_time': window_end.time().strftime('%H:%M'),
+                'duration_hours': (window_end - window_start).total_seconds() / 3600
+            })
+            
+            current_day += timedelta(days=1)
+        
+        return time_windows
+    
+    except ValueError as e:
+        print(f"Invalid time format: {e}")
+        return []
+
+def check_employee_availability(employee_shifts, time_windows):
+    """
+    Check if employee is available during all required time windows
+    Returns: (is_available, unavailable_periods)
+    """
+    unavailable_periods = []
+    
+    for window in time_windows:
+        day = window['day_name']
+        shift = employee_shifts.get(day, {})
+        
+        # Employee has no shift this day
+        if not shift.get('in') or not shift.get('out'):
+            unavailable_periods.append({
+                'day': day,
+                'reason': 'No shift scheduled'
+            })
+            continue
+        
+        # Parse shift times
+        try:
+            shift_start = datetime.strptime(shift['in'], '%H:%M').time()
+            shift_end = datetime.strptime(shift['out'], '%H:%M').time()
+            task_start = datetime.strptime(window['start_time'], '%H:%M').time()
+            task_end = datetime.strptime(window['end_time'], '%H:%M').time()
+        except ValueError:
+            unavailable_periods.append({
+                'day': day,
+                'reason': 'Invalid time format'
+            })
+            continue
+        
+        # Check if task window fits within shift
+        if task_start < shift_start or task_end > shift_end:
+            unavailable_periods.append({
+                'day': day,
+                'required': f"{window['start_time']}-{window['end_time']}",
+                'available': f"{shift['in']}-{shift['out']}",
+                'reason': 'Outside shift hours'
+            })
+    
+    return (len(unavailable_periods) == 0, unavailable_periods)
+
+# Example usage in your main function:
+task_windows = calculate_daily_time_windows("2025:04:13:12:30", "2025:04:14:04:30")
+# Returns:
+# [
+#   {'day_name': 'sunday', 'day_date': '2025-04-13', 'start_time': '12:30', 'end_time': '23:59', 'duration_hours': 11.5},
+#   {'day_name': 'monday', 'day_date': '2025-04-14', 'start_time': '00:00', 'end_time': '04:30', 'duration_hours': 4.5}
+# ]
+
+# Then when checking employees:
+for employee in matching_employees:
+    is_available, conflicts = check_employee_availability(employee['shifts'], task_windows)
+    employee['availability'] = {
+        'is_available': is_available,
+        'conflicts': conflicts if not is_available else None,
+        'total_available_hours': sum(w['duration_hours'] for w in task_windows) if is_available else 0
+    }
+
 
 def load_and_clear_tasks():
     """Load tasks from JSON file and clear it"""
