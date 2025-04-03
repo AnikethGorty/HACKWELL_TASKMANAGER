@@ -1,19 +1,18 @@
-# Use Dart official image
+# Use official Dart image
 FROM dart:stable
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy Dart project files
-COPY app/pubspec.yaml /app/
+# Copy the pubspec files and get dependencies
+COPY app/pubspec.yaml app/pubspec.lock ./
 
-# Install dependencies
 RUN dart pub get
 
-# Copy the rest of the application
-COPY app/ /app/
+# Copy the rest of the application files
+COPY app/ .
 
-# Compile the Dart application
+# Compile the Dart app
 RUN dart compile exe frontend.dart -o /app/frontend
 
 # Set the entry point
