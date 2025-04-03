@@ -37,11 +37,3 @@ jobs:
         if: github.event_name == 'push'
         working-directory: app
         run: flutter build web --release
-
-      # Optionally deploy your web app to GitHub Pages
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          branch: gh-pages
-          folder: app/build/web

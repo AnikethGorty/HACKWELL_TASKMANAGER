@@ -17,4 +17,3 @@ jobs:
       - name: Install Dependencies
         working-directory: app
         run: flutter pub get  # Auto-install dependencies
- 
