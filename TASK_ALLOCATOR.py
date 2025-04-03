@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import datetime
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import os
@@ -19,13 +19,31 @@ skillset = [
     "Laser-Cutting", "Carpentry", "Soldering", "Networking", "Motor-Repair"
 ]
 
-def get_latest_tasks():
-    """Retrieve tasks from the shared JSON file"""
+def load_and_clear_tasks():
+    """Load tasks from JSON file and then clear the file"""
     try:
+        # Check if file exists
+        if not os.path.exists(TASKS_FILE):
+            return []
+            
+        # Read and parse tasks
         with open(TASKS_FILE, 'r') as f:
-            tasks = json.load(f)
-            return tasks
-    except (FileNotFoundError, json.JSONDecodeError):
+            content = f.read()
+            if not content.strip():  # Check if file is empty
+                return []
+            tasks = json.loads(content)
+            
+        # Clear the file after reading
+        with open(TASKS_FILE, 'w') as f:
+            f.write('[]')
+            
+        return tasks if isinstance(tasks, list) else []
+        
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"Error loading/clearing tasks: {e}")
+        # Ensure file is cleared even if error occurs
+        with open(TASKS_FILE, 'w') as f:
+            f.write('[]')
         return []
 
 def extract_required_skills(tasks):
@@ -104,30 +122,35 @@ def calculate_duration(start_time, end_time):
     }
 
 def main():
-    # Load tasks and extract skills
-    tasks = get_latest_tasks()
+    # Load tasks and clear the file
+    tasks = load_and_clear_tasks()
+    
+    print(f"\nFound {len(tasks)} tasks to process")
+    
+    # Extract skills
     required_skills = extract_required_skills(tasks)
     
-    print(f"\nFound {len(required_skills)} unique skills in tasks:")
-    print(", ".join(required_skills))
-    
-    # Find similar skills
     if required_skills:
+        print(f"\nFound {len(required_skills)} unique skills in tasks:")
+        print(", ".join(required_skills))
+        
+        # Find similar skills
         print("\nMatching skills to skillset:")
         matches = find_most_similar_skills(required_skills)
         for match in matches:
             print(f"Input: {match['input_skill']:20} | Match: {match['matched_skill']:20} | Score: {match['similarity_score']:.4f}")
     
     # Time analysis example
-    print("\nTime Analysis:")
-    start_time = "2023:12:01:09:00"  # Example from tasks
-    end_time = "2023:12:02:17:30"    # Example from tasks
-    
-    duration = calculate_duration(start_time, end_time)
-    if duration:
-        print(f"Duration between {start_time} and {end_time}:")
-        print(f"{duration['days']} days, {duration['hours']} hours, {duration['minutes']} minutes")
-        print(f"Total: {duration['total_hours']:.2f} hours")
+    if tasks:
+        print("\nTime Analysis:")
+        for task in tasks:
+            print(f"\nTask: {task['taskName']}")
+            duration = calculate_duration(task['startTime'], task['endTime'])
+            if duration:
+                print(f"Duration: {duration['days']} days, {duration['hours']} hours, {duration['minutes']} minutes")
+                print(f"Total: {duration['total_hours']:.2f} hours")
+
+    print("\nTasks file has been cleared and is ready for new tasks")
 
 if __name__ == '__main__':
     main()
