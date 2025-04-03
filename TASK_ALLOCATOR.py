@@ -276,6 +276,45 @@ def generate_top_candidates(all_results, output_file='top_candidates.json'):
         
         # Get available employees and calculate their skill sums
         available_employees = []
+        for emp in task_result.get('matching_employees', []):
+            if emp.get('availability', {}).get('is_available', False):
+                # Sum rankings for matched skills
+                skill_sum = sum(emp.get('matched_skills', {}).values())
+                available_employees.append({
+                    **emp,
+                    'skill_sum': skill_sum,
+                    'task_id': task_id,
+                    'task_name': task_name
+                })
+        
+        # Sort by skill sum (descending) and take top 5
+        available_employees.sort(key=lambda x: x.get('skill_sum', 0), reverse=True)
+        top_5 = available_employees[:5]
+        
+        if top_5:
+            top_candidates.append({
+                'task_id': task_id,
+                'task_name': task_name,
+                'required_skills': required_skills,
+                'top_candidates': top_5
+            })
+    
+    # Save to file
+    with open(output_file, 'w') as f:
+        json.dump(top_candidates, f, indent=2)
+    
+    print(f"Top candidates saved to {output_file}")
+    return top_candidates
+    """Generate a file with top 5 available candidates sorted by skill ranking"""
+    top_candidates = []
+    
+    for task_result in all_results:
+        task_id = task_result['task_id']
+        task_name = task_result['task_name']
+        required_skills = task_result['required_skills']
+        
+        # Get available employees and calculate their skill sums
+        available_employees = []
         for emp in task_result['matching_employees']:
             if emp['availability']['is_available']:
                 # Sum rankings for matched skills
@@ -416,6 +455,20 @@ def main():
         json.dump(all_results, f, indent=2)
     
     print(f"\nAllocation complete. Results saved to {output_file}")
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f'task_allocations_{timestamp}.json'
+    
+    # Save complete results
+    with open(output_file, 'w') as f:
+        json.dump(all_results, f, indent=2)
+    
+    print(f"\nAllocation complete. Results saved to {output_file}")
+    
+    # Generate top candidates file
+    top_candidates_file = f'top_candidates_{timestamp}.json'
+    generate_top_candidates(all_results, top_candidates_file)
+
 
 if __name__ == '__main__':
     main()
