@@ -1,20 +1,19 @@
-# Use the official Dart image
-FROM dart:stable
+# Use Dart as the base image
+FROM dart:stable AS build
 
-# Set the working directory in the container
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy pubspec files first (to take advantage of Docker's layer caching)
-COPY pubspec.* ./
+# Copy only pubspec files first (for dependency caching)
+COPY app/pubspec.yaml app/pubspec.lock ./
 
-# Get dependencies (this speeds up builds when dependencies don’t change)
+# Ensure `pubspec.lock` is generated properly
 RUN dart pub get
 
-# Copy the rest of the application code
-COPY . .
+# Copy the rest of the application
+COPY app/ .  
 
-# Expose the port (if your Dart app runs a server)
-EXPOSE 8080
+# Compile the Dart app (optional)
+RUN dart compile exe frontend.dart -o /app/frontend
 
-# Run the Dart application
-CMD ["dart", "run", "bin/server.dart"]
+CMD ["/app/frontend"]
