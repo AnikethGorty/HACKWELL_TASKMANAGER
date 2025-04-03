@@ -1,11 +1,18 @@
-name: my_dart_project
+name: hackwell_taskmanager  # ✅ Renamed to a valid Dart package name
+description: A Flutter-based Task Manager app.
+publish_to: 'none'  # Prevents accidental publishing
 
 environment:
-  sdk: '>=2.12.0 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'  # ✅ Updated for newer Dart versions
 
 dependencies:
-  web_socket_channel: ^2.4.0 
   flutter:
+    sdk: flutter  # ✅ Added Flutter dependency
+  web_socket_channel: ^2.4.0  # ✅ Keeping your existing dependency
+
+dev_dependencies:
+  flutter_test:
     sdk: flutter
-  intl: ^0.20.2
-  cupertino_icons: ^1.0.2
+
+flutter:
+  uses-material-design: true  # ✅ Enables Material Design widgets
