@@ -7,3 +7,4 @@ typing
 datetime
 faker
 huggingface_hub
+sentence-transformers

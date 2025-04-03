@@ -1,0 +1,19 @@
+name: Build and Run Dart Web App
+
+on:
+  push:
+    branches:
+      - main  # Runs when you push to the main branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Runs on GitHub-hosted Linux machine
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3  # Pulls your repo code
+
+      - name: Set up Docker
+        run: |
+          docker build -t my-dart-app .
+          docker run -p 8080:8080 my-dart-app

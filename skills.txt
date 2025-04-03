@@ -1,0 +1,4 @@
+"Welding", "PLC-Programming", "Hydraulics", "Electrical", "Pneumatics",
+    "CNC-Operation", "Machining", "Fabrication", "Automation", "Instrumentation",
+    "HVAC", "Blueprint-Reading", "3D-Printing", "Quality-Control", "Robotics",
+    "Laser-Cutting", "Carpentry", "Soldering", "Networking", "Motor-Repair"
