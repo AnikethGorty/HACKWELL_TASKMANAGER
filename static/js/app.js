@@ -63,25 +63,14 @@ function renderSkills() {
 async function handleFormSubmit(e) {
     e.preventDefault();
     
-    if (skills.length === 0) {
-        showMessage('Please add at least one skill', 'error');
-        return;
-    }
-
     // Get form data
     const formData = {
         taskName: document.getElementById('taskName').value,
         taskDescription: document.getElementById('taskDescription').value,
-        skillsRequired: [...skills], // Create a copy of the skills array
+        skillsRequired: [...skills], // From your skills array
         startTime: document.getElementById('startTime').value,
         endTime: document.getElementById('endTime').value
     };
-
-    // Validate time format
-    if (!/^\d{2}:\d{2}:\d{2}$/.test(formData.startTime) || !/^\d{2}:\d{2}:\d{2}$/.test(formData.endTime)) {
-        showMessage('Time format must be DD:HH:MM', 'error');
-        return;
-    }
 
     try {
         const response = await fetch('/api/tasks', {
@@ -99,7 +88,7 @@ async function handleFormSubmit(e) {
         }
 
         showMessage(`Task created successfully! ID: ${result.task_id}`, 'success');
-        taskForm.reset();
+        document.getElementById('taskForm').reset();
         skills.length = 0;
         renderSkills();
         
@@ -107,6 +96,7 @@ async function handleFormSubmit(e) {
         console.error('Error:', error);
         showMessage(error.message || 'Error creating task', 'error');
     }
+
 }
 
 // Show message to user
@@ -119,6 +109,34 @@ function showMessage(text, type) {
     setTimeout(() => {
         messageDiv.style.display = 'none';
     }, 5000);
+}
+
+async function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    // Get form data
+    const formData = {
+        taskName: document.getElementById('taskName').value,
+        taskDescription: document.getElementById('taskDescription').value,
+        skillsRequired: [...skills], // From your skills array
+        startTime: document.getElementById('startTime').value,
+        endTime: document.getElementById('endTime').value
+    };
+
+    try {
+        const response = await fetch('/api/tasks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', // Explicitly set JSON
+            },
+            body: JSON.stringify(formData) // Ensure proper JSON stringify
+        });
+
+        // Handle response...
+    } catch (error) {
+        console.error('Error:', error);
+        showMessage('Failed to send task data: ' + error.message, 'error');
+    }
 }
 
 // Make removeSkill available globally
