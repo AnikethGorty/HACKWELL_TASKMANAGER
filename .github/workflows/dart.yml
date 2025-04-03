@@ -15,4 +15,5 @@ jobs:
           sdk: stable
 
       - name: Install Dependencies
+        working-directory: app
         run: dart pub get  # Auto-install dependencies
