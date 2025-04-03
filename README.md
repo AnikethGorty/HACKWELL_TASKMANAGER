@@ -4,5 +4,5 @@ This is for HACKWELL
 TEAM ELITE
 Aniketh
 Danish
-Gazil
+Gaazil
 Krish
