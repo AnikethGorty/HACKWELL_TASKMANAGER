@@ -3,6 +3,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 import os
+from datetime import datetime
 
 # Initialize model
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
@@ -62,7 +63,7 @@ def match_to_skillset(task_skills):
     return matched_skills
 
 def find_employees_with_skills(employees_file, required_skills):
-    """Find employees with matching skills"""
+    """Find employees with matching skills including shift data"""
     try:
         with open(employees_file) as f:
             employees = json.load(f)
@@ -73,20 +74,41 @@ def find_employees_with_skills(employees_file, required_skills):
     matching_employees = []
     
     for employee in tqdm(employees, desc="Searching employees"):
-        employee_skills = employee.get('skills', [])
+        employee_skills = employee.get('skills', {})
         if not employee_skills:
             continue
         
-        # Check if employee has any required skills
-        common_skills = set(required_skills) & set(employee_skills)
+        # Check if employee has any required skills with proficiency >= 5
+        common_skills = {
+            skill: proficiency 
+            for skill, proficiency in employee_skills.items() 
+            if skill in required_skills and proficiency >= 5
+        }
+        
         if common_skills:
+            # Format shifts data
+            shifts = employee.get('shifts', {})
+            formatted_shifts = {}
+            
+            for day in ['monday', 'tuesday', 'wednesday', 'thursday', 
+                       'friday', 'saturday', 'sunday']:
+                in_key = f"{day}_in"
+                out_key = f"{day}_out"
+                formatted_shifts[day] = {
+                    'in': shifts.get(in_key),
+                    'out': shifts.get(out_key)
+                }
+            
             matching_employees.append({
-                'employee_id': employee.get('id'),
-                'name': employee.get('name'),
-                'position': employee.get('position'),
-                'matched_skills': list(common_skills),
-                'all_skills': employee_skills
+                'employee_id': employee.get('employee_id'),
+                'skills': employee_skills,
+                'matched_skills': common_skills,
+                'shifts': formatted_shifts,
+                'average_proficiency': sum(common_skills.values()) / len(common_skills)
             })
+    
+    # Sort by average proficiency (highest first)
+    matching_employees.sort(key=lambda x: x['average_proficiency'], reverse=True)
     
     return matching_employees
 
@@ -125,6 +147,8 @@ def main():
         task_result = {
             'task_id': task.get('id'),
             'task_name': task.get('taskName'),
+            'start_time': task.get('startTime'),
+            'end_time': task.get('endTime'),
             'original_skills': task_skills,
             'skill_matches': matched_skills,
             'matching_employees': matching_employees,
@@ -134,8 +158,9 @@ def main():
         
         print(f"Found {len(matching_employees)} matching employees")
     
-    # Save complete results
-    output_file = 'task_allocations_results.json'
+    # Save complete results with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f'task_allocations_{timestamp}.json'
     with open(output_file, 'w') as f:
         json.dump(all_results, f, indent=2)
     
