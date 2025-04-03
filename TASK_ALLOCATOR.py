@@ -152,5 +152,51 @@ def main():
 
     print("\nTasks file has been cleared and is ready for new tasks")
 
+def find_matching_employees(employees, required_skills, threshold=0.7):
+    """Find employees with matching skills using semantic similarity"""
+    matching_employees = []
+    
+    for employee in employees:
+        # Get employee's skills (handle missing field)
+        employee_skills = employee.get('skills', [])
+        if not employee_skills:
+            continue
+        
+        # Calculate similarity for each required skill
+        matches = []
+        for req_skill in required_skills:
+            # Encode skills
+            embeddings = model.encode([req_skill] + employee_skills)
+            req_embedding = embeddings[0]
+            
+            # Compare with each employee skill
+            for i, emp_skill in enumerate(employee_skills):
+                similarity = cosine_similarity(
+                    [req_embedding],
+                    [embeddings[i+1]]  # +1 because first embedding is req_skill
+                )[0][0]
+                
+                if similarity >= threshold:
+                    matches.append({
+                        'required_skill': req_skill,
+                        'employee_skill': emp_skill,
+                        'similarity': float(f"{similarity:.4f}")
+                    })
+        
+        if matches:
+            # Add employee with their matches
+            matching_employees.append({
+                'employee_id': employee['id'],
+                'name': employee.get('name', 'Unknown'),
+                'position': employee.get('position', 'Unknown'),
+                'matches': matches
+            })
+    
+    return matching_employees
+
+# Find matches
+results = find_matching_employees(employees, matched_skills)
+
+
 if __name__ == '__main__':
     main()
