@@ -265,6 +265,69 @@ def check_employee_availability(employee, time_windows):
         'total_available_hours': total_available_hours
     }
 
+def generate_top_candidates(all_results, output_file='top_candidates.json'):
+    """Generate a file with top 5 available candidates sorted by skill ranking"""
+    top_candidates = []
+    
+    for task_result in all_results:
+        task_id = task_result['task_id']
+        task_name = task_result['task_name']
+        required_skills = task_result['required_skills']
+        
+        # Get available employees and calculate their skill sums
+        available_employees = []
+        for emp in task_result['matching_employees']:
+            if emp['availability']['is_available']:
+                # Sum rankings for matched skills
+                skill_sum = sum(emp['matched_skills'].values())
+                available_employees.append({
+                    **emp,
+                    'skill_sum': skill_sum,
+                    'task_id': task_id,
+                    'task_name': task_name
+                })
+        
+        # Sort by skill sum (descending) and take top 5
+        available_employees.sort(key=lambda x: x['skill_sum'], reverse=True)
+        top_5 = available_employees[:5]
+        
+        if top_5:
+            top_candidates.append({
+                'task_id': task_id,
+                'task_name': task_name,
+                'required_skills': required_skills,
+                'top_candidates': top_5
+            })
+    
+    # Save to file
+    with open(output_file, 'w') as f:
+        json.dump(top_candidates, f, indent=2)
+    
+    print(f"Top candidates saved to {output_file}")
+    return top_candidates
+
+# Add this at the end of your main() function, before saving results:
+top_candidates = generate_top_candidates(all_results)
+
+# This will create a new file 'top_candidates.json' with structure:
+# [
+#   {
+#     "task_id": 1,
+#     "task_name": "Task Name",
+#     "required_skills": ["Skill1", "Skill2"],
+#     "top_candidates": [
+#       {
+#         "employee_id": "E001",
+#         "skill_sum": 17,
+#         "matched_skills": {"Skill1": 8, "Skill2": 9},
+#         "availability": {...},
+#         ...
+#       },
+#       ... (top 5)
+#     ]
+#   },
+#   ... (all tasks)
+# ]
 def main():
     # Load and clear tasks
     tasks = load_and_clear_tasks()
