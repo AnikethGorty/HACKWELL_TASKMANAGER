@@ -5,7 +5,7 @@ FROM dart:stable
 WORKDIR /app
 
 # Copy the pubspec files and get dependencies
-COPY app/pubspec.yaml app/pubspec.lock ./
+COPY app/pubspec.yaml .
 
 RUN dart pub get
 
