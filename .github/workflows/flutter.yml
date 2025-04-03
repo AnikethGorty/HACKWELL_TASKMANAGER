@@ -36,4 +36,4 @@ jobs:
       - name: Build Web App
         if: github.event_name == 'push'
         working-directory: app
-        run: flutter build web --release
+        run: flutter build web --release --target=lib/main.dart
