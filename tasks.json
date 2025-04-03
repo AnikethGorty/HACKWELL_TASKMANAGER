@@ -1,0 +1,15 @@
+[
+  {
+    "taskName": "Website Redesign",
+    "taskDescription": "Redesign the homepage",
+    "skillsRequired": [
+      "HTML",
+      "CSS",
+      "JavaScript"
+    ],
+    "startTime": "2023:12:01:09:00",
+    "endTime": "2023:12:02:17:30",
+    "id": 1,
+    "created_at": "2025-04-03T15:56:15.393936"
+  }
+]

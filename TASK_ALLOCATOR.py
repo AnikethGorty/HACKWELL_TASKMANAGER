@@ -1,113 +1,156 @@
-from flask import Flask, render_template, request, jsonify
-from datetime import datetime
 import json
+from datetime import datetime
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 import os
 
-app = Flask(__name__)
-
+# Constants
 TASKS_FILE = 'tasks.json'
+HF_KEY = os.getenv("HUGGINGFACE_TOKEN")
 
-def ensure_tasks_file():
-    """Ensure tasks file exists and is valid"""
+# Load model
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+# Skills database
+skillset = [
+    "Welding", "PLC-Programming", "Hydraulics", "Electrical", "Pneumatics",
+    "CNC-Operation", "Machining", "Fabrication", "Automation", "Instrumentation",
+    "HVAC", "Blueprint-Reading", "3D-Printing", "Quality-Control", "Robotics",
+    "Laser-Cutting", "Carpentry", "Soldering", "Networking", "Motor-Repair"
+]
+
+def load_and_clear_tasks():
+    """Load tasks from JSON file and then clear the file"""
     try:
-        # Create file if it doesn't exist
+        # Check if file exists
         if not os.path.exists(TASKS_FILE):
-            with open(TASKS_FILE, 'w') as f:
-                json.dump([], f)
-            return True
-        
-        # Verify file has valid content
+            return []
+            
+        # Read and parse tasks
         with open(TASKS_FILE, 'r') as f:
-            content = f.read().strip()
-            if not content:  # If empty, initialize with empty array
-                with open(TASKS_FILE, 'w') as f:
-                    json.dump([], f)
-            else:
-                json.loads(content)  # Test if valid JSON
-        return True
-    except (json.JSONDecodeError, IOError) as e:
-        print(f"Error initializing tasks file: {e}")
-        # If corrupted, recreate the file
-        try:
-            with open(TASKS_FILE, 'w') as f:
-                json.dump([], f)
-            return True
-        except IOError:
-            return False
-
-def load_tasks():
-    """Safely load tasks from JSON file"""
-    if not ensure_tasks_file():
-        return []
-    
-    try:
-        with open(TASKS_FILE, 'r') as f:
-            content = f.read().strip()
-            if not content:
+            content = f.read()
+            if not content.strip():  # Check if file is empty
                 return []
-            return json.loads(content)
+            tasks = json.loads(content)
+            
+        # Clear the file after reading
+        with open(TASKS_FILE, 'w') as f:
+            f.write('[]')
+            
+        return tasks if isinstance(tasks, list) else []
+        
     except (json.JSONDecodeError, IOError) as e:
-        print(f"Error loading tasks: {e}")
+        print(f"Error loading/clearing tasks: {e}")
+        # Ensure file is cleared even if error occurs
+        with open(TASKS_FILE, 'w') as f:
+            f.write('[]')
         return []
 
-def save_tasks(tasks):
-    """Safely save tasks to JSON file"""
+def extract_required_skills(tasks):
+    """Extract and flatten all skills from tasks"""
+    required_skills = []
+    for task in tasks:
+        if 'skillsRequired' in task and isinstance(task['skillsRequired'], list):
+            required_skills.extend(task['skillsRequired'])
+    return list(set(required_skills))  # Remove duplicates
+
+def find_most_similar_skills(required_skills):
+    """Find most similar skills from skillset for each required skill"""
+    results = []
+    for skill in required_skills:
+        tempdict = {}
+        for j in skillset:
+            embeddings = model.encode([skill, j])
+            similarity = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]
+            tempdict[j] = similarity
+
+        # Find the most similar skill
+        max_key, max_value = max(tempdict.items(), key=lambda x: x[1])
+        results.append({
+            'input_skill': skill,
+            'matched_skill': max_key,
+            'similarity_score': float(f"{max_value:.4f}")
+        })
+    return results
+
+def parse_time_input(time_str):
+    """Parse time string in YYYY:MM:DD:HH:MM format"""
     try:
-        with open(TASKS_FILE, 'w') as f:
-            json.dump(tasks, f, indent=2)
-        return True
-    except (IOError, TypeError) as e:
-        print(f"Error saving tasks: {e}")
-        return False
+        year, month, day, hour, minute = map(int, time_str.split(':'))
+        return {
+            'year': year,
+            'month': month,
+            'day': day,
+            'hour': hour,
+            'minute': minute,
+            'original_string': time_str
+        }
+    except (ValueError, AttributeError):
+        print(f"Invalid format! Use YYYY:MM:DD:HH:MM (e.g., 2023:12:31:23:59)")
+        return None
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/api/tasks', methods=['GET', 'POST'])
-def handle_tasks():
-    if request.method == 'GET':
-        tasks = load_tasks()
-        return jsonify({"tasks": tasks})
+def calculate_duration(start_time, end_time):
+    """Calculate duration between two time points"""
+    start = parse_time_input(start_time)
+    end = parse_time_input(end_time)
     
-    elif request.method == 'POST':
-        if not request.is_json:
-            return jsonify({"status": "error", "message": "Content-Type must be application/json"}), 415
+    if not start or not end:
+        return None
         
-        try:
-            task_data = request.get_json()
-            
-            # Validate required fields
-            required_fields = ['taskName', 'taskDescription', 'skillsRequired', 'startTime', 'endTime']
-            for field in required_fields:
-                if field not in task_data or not task_data[field]:
-                    return jsonify({"status": "error", "message": f"Missing required field: {field}"}), 400
-            
-            # Validate skills
-            if not isinstance(task_data['skillsRequired'], list):
-                return jsonify({"status": "error", "message": "skillsRequired must be an array"}), 400
-            
-            # Load existing tasks
-            tasks = load_tasks()
-            
-            # Add metadata
-            task_data['id'] = len(tasks) + 1
-            task_data['created_at'] = datetime.now().isoformat()
-            
-            # Save updated tasks
-            tasks.append(task_data)
-            if not save_tasks(tasks):
-                return jsonify({"status": "error", "message": "Failed to save task"}), 500
-            
-            return jsonify({
-                "status": "success", 
-                "task_id": task_data['id'],
-                "message": "Task created successfully"
-            })
-            
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
+    start_dt = datetime(
+        year=start['year'],
+        month=start['month'],
+        day=start['day'],
+        hour=start['hour'],
+        minute=start['minute']
+    )
+    
+    end_dt = datetime(
+        year=end['year'],
+        month=end['month'],
+        day=end['day'],
+        hour=end['hour'],
+        minute=end['minute']
+    )
+    
+    duration = end_dt - start_dt
+    return {
+        'days': duration.days,
+        'hours': duration.seconds // 3600,
+        'minutes': (duration.seconds % 3600) // 60,
+        'total_hours': duration.total_seconds() / 3600
+    }
+
+def main():
+    # Load tasks and clear the file
+    tasks = load_and_clear_tasks()
+    
+    print(f"\nFound {len(tasks)} tasks to process")
+    
+    # Extract skills
+    required_skills = extract_required_skills(tasks)
+    
+    if required_skills:
+        print(f"\nFound {len(required_skills)} unique skills in tasks:")
+        print(", ".join(required_skills))
+        
+        # Find similar skills
+        print("\nMatching skills to skillset:")
+        matches = find_most_similar_skills(required_skills)
+        for match in matches:
+            print(f"Input: {match['input_skill']:20} | Match: {match['matched_skill']:20} | Score: {match['similarity_score']:.4f}")
+    
+    # Time analysis example
+    if tasks:
+        print("\nTime Analysis:")
+        for task in tasks:
+            print(f"\nTask: {task['taskName']}")
+            duration = calculate_duration(task['startTime'], task['endTime'])
+            if duration:
+                print(f"Duration: {duration['days']} days, {duration['hours']} hours, {duration['minutes']} minutes")
+                print(f"Total: {duration['total_hours']:.2f} hours")
+
+    print("\nTasks file has been cleared and is ready for new tasks")
 
 if __name__ == '__main__':
-    ensure_tasks_file()  # Initialize on startup
-    app.run(debug=True)
+    main()
