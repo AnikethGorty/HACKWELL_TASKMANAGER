@@ -112,6 +112,72 @@ def check_employee_availability(employee, time_windows):
     
     for window in time_windows:
         day = window['day_name']
+        shift_in_key = f"{day}_in"
+        shift_out_key = f"{day}_out"
+        
+        # Check if shift exists for this day
+        if shift_in_key not in employee['shifts'] or shift_out_key not in employee['shifts']:
+            unavailable_periods.append({
+                'day': day,
+                'reason': 'No shift scheduled'
+            })
+            continue
+            
+        shift_in = employee['shifts'][shift_in_key]
+        shift_out = employee['shifts'][shift_out_key]
+        
+        # Skip if shift times are null
+        if shift_in is None or shift_out is None:
+            unavailable_periods.append({
+                'day': day,
+                'reason': 'No shift scheduled'
+            })
+            continue
+        
+        try:
+            # Parse times (handle 24:48 as 00:48 next day)
+            def parse_time(time_str):
+                if time_str == '24:00' or time_str == '24:48':  # Handle special cases
+                    return datetime.strptime('23:59', '%H:%M').time()
+                return datetime.strptime(time_str, '%H:%M').time()
+            
+            shift_start = parse_time(shift_in)
+            shift_end = parse_time(shift_out)
+            task_start = datetime.strptime(window['start_time'], '%H:%M').time()
+            task_end = datetime.strptime(window['end_time'], '%H:%M').time()
+            
+            # Only unavailable if ENTIRE shift is before OR after task window
+            if (shift_end < task_start) or (shift_start > task_end):
+                unavailable_periods.append({
+                    'day': day,
+                    'reason': 'Shift completely outside task window',
+                    'shift_hours': f"{shift_in}-{shift_out}",
+                    'task_hours': f"{window['start_time']}-{window['end_time']}"
+                })
+            else:
+                # Calculate overlapping hours
+                overlap_start = max(shift_start, task_start)
+                overlap_end = min(shift_end, task_end)
+                overlap_hours = (datetime.combine(datetime.today(), overlap_end) - 
+                               datetime.combine(datetime.today(), overlap_start)).total_seconds() / 3600
+                total_available_hours += max(0, overlap_hours)
+                
+        except ValueError as e:
+            unavailable_periods.append({
+                'day': day,
+                'reason': f'Invalid time format: {str(e)}'
+            })
+    
+    return {
+        'is_available': len(unavailable_periods) == 0,
+        'unavailable_periods': unavailable_periods if unavailable_periods else None,
+        'total_available_hours': round(total_available_hours, 2)
+    }    """Check if employee is available during required time windows"""
+    unavailable_periods = []
+    total_available_hours = 0
+    
+    for window in time_windows:
+        day = window['day_name']
         shift = employee['shifts'].get(day, {})
         
         # Skip if no shift scheduled
