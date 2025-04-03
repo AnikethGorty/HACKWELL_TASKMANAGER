@@ -6,7 +6,6 @@ WORKDIR /app
 
 # Copy Dart project files
 COPY app/pubspec.yaml /app/
-COPY app/pubspec.lock /app/
 
 # Install dependencies
 RUN dart pub get
