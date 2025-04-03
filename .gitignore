@@ -1,0 +1,34 @@
+# Dart-specific
+.dart_tool/
+build/
+.packages
+.pub-cache/
+.pub/
+analysis_options.yaml
+
+# Flutter-related (if applicable)
+android/
+ios/
+macos/
+web/
+windows/
+linux/
+*.iml
+
+# VS Code / IntelliJ / JetBrains
+.idea/
+.vscode/
+*.swp
+
+# Logs, Temp Files, and User-Specific Data
+*.log
+*.tmp
+*.DS_Store
+*.lock
+*.bak
+
+# Docker-related
+docker-compose.override.yml
+docker-compose.yml
+Dockerfile
+.env

@@ -1,0 +1,7 @@
+# Ignore Dart tool directories
+.dart_tool/
+build/
+
+# Ignore Git and Node files if applicable
+.git/
+node_modules/
