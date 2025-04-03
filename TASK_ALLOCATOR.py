@@ -88,7 +88,7 @@ def calculate_daily_time_windows(start_time_str, end_time_str):
             day_start = max(current_day, datetime.combine(current_day.date(), time.min))
             day_end = min(
                 end_time,
-                datetime.combine(current_day.date(), time(23, 59, 59))
+                datetime.combine(current_day.date(), time(23, 59, 59)))
             
             time_windows.append({
                 'day_name': day_name,
@@ -106,6 +106,55 @@ def calculate_daily_time_windows(start_time_str, end_time_str):
         return []
 
 def check_employee_availability(employee, time_windows):
+    """Check if employee is available during required time windows"""
+    unavailable_periods = []
+    total_available_hours = 0
+    
+    for window in time_windows:
+        day = window['day_name']
+        shift = employee['shifts'].get(day, {})
+        
+        # Skip if no shift scheduled
+        if not shift.get('in') or not shift.get('out'):
+            unavailable_periods.append({
+                'day': day,
+                'reason': 'No shift scheduled'
+            })
+            continue
+        
+        try:
+            shift_start = datetime.strptime(shift['in'], '%H:%M').time()
+            shift_end = datetime.strptime(shift['out'], '%H:%M').time()
+            task_start = datetime.strptime(window['start_time'], '%H:%M').time()
+            task_end = datetime.strptime(window['end_time'], '%H:%M').time()
+            
+            # Only unavailable if ENTIRE shift is before OR after task window
+            if (shift_end < task_start) or (shift_start > task_end):
+                unavailable_periods.append({
+                    'day': day,
+                    'reason': 'Shift completely outside task window',
+                    'shift_hours': f"{shift['in']}-{shift['out']}",
+                    'task_hours': f"{window['start_time']}-{window['end_time']}"
+                })
+            else:
+                # Calculate overlapping hours
+                overlap_start = max(shift_start, task_start)
+                overlap_end = min(shift_end, task_end)
+                overlap_hours = (datetime.combine(datetime.today(), overlap_end) - 
+                               datetime.combine(datetime.today(), overlap_start)).total_seconds() / 3600
+                total_available_hours += max(0, overlap_hours)
+                
+        except ValueError:
+            unavailable_periods.append({
+                'day': day,
+                'reason': 'Invalid time format'
+            })
+    
+    return {
+        'is_available': len(unavailable_periods) == 0,
+        'unavailable_periods': unavailable_periods if unavailable_periods else None,
+        'total_available_hours': round(total_available_hours, 2)
+    }
     """Check if employee is available during required time windows"""
     unavailable_periods = []
     total_available_hours = 0
