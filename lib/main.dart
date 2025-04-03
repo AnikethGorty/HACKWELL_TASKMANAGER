@@ -1,122 +1,243 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'dart:convert';
 
 void main() {
-  runApp(const MyApp());
+  runApp(TaskAllocatorApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class TaskAllocatorApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
+  _TaskAllocatorAppState createState() => _TaskAllocatorAppState();
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class _TaskAllocatorAppState extends State<TaskAllocatorApp> {
+  bool isDarkMode = false;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
+  void toggleDarkMode() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      isDarkMode = !isDarkMode;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: isDarkMode ? ThemeData.dark() : ThemeData.light(),
+      home: WelcomeScreen(toggleDarkMode: toggleDarkMode, isDarkMode: isDarkMode),
+    );
+  }
+}
+
+class WelcomeScreen extends StatelessWidget {
+  final Function toggleDarkMode;
+  final bool isDarkMode;
+  final TextEditingController nameController = TextEditingController();
+
+  WelcomeScreen({required this.toggleDarkMode, required this.isDarkMode});
+
+  void navigateToDashboard(BuildContext context) {
+    if (nameController.text.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TaskAllocatorScreen(
+            userName: nameController.text,
+            toggleDarkMode: toggleDarkMode,
+            isDarkMode: isDarkMode,
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text("Task Allocator"),
+        actions: [
+          IconButton(
+            icon: Icon(isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),
+            onPressed: () => toggleDarkMode(),
+          )
+        ],
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("Enter Your Name", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              SizedBox(height: 10),
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(border: OutlineInputBorder(), labelText: "Your Name"),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => navigateToDashboard(context),
+                child: Text("Proceed"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TaskAllocatorScreen extends StatefulWidget {
+  final String userName;
+  final Function toggleDarkMode;
+  final bool isDarkMode;
+
+  TaskAllocatorScreen({required this.userName, required this.toggleDarkMode, required this.isDarkMode});
+
+  @override
+  _TaskAllocatorScreenState createState() => _TaskAllocatorScreenState();
+}
+
+class _TaskAllocatorScreenState extends State<TaskAllocatorScreen> {
+  WebSocketChannel? channel;
+  List<Map<String, dynamic>> tasks = [];
+  TextEditingController taskNameController = TextEditingController();
+  TextEditingController skillsController = TextEditingController();
+  DateTime? selectedDeadline;
+  String serverResponse = "No response yet";
+
+  @override
+  void initState() {
+    super.initState();
+    connectWebSocket();
+  }
+
+  void connectWebSocket() {
+    try {
+      channel = IOWebSocketChannel.connect("ws://localhost:8765");
+
+      channel!.stream.listen(
+        (message) {
+          setState(() {
+            serverResponse = "Server Response: $message";
+          });
+        },
+        onError: (error) {
+          setState(() {
+            serverResponse = "Error: Unable to connect to server";
+          });
+        },
+        onDone: () {
+          setState(() {
+            serverResponse = "Connection closed by server";
+          });
+        },
+      );
+    } catch (e) {
+      setState(() {
+        serverResponse = "Connection failed: $e";
+      });
+    }
+  }
+
+  void sendTaskToServer() {
+    if (taskNameController.text.isNotEmpty && selectedDeadline != null && channel != null) {
+      Map<String, dynamic> taskData = {
+        "task_name": taskNameController.text,
+        "deadline": DateFormat('yyyy-MM-dd').format(selectedDeadline!),
+        "skills": skillsController.text.split(",").map((s) => s.trim()).toList(),
+      };
+
+      String jsonTask = jsonEncode(taskData);
+      channel!.sink.add(jsonTask);
+
+      setState(() {
+        tasks.add(taskData);
+        taskNameController.clear();
+        skillsController.clear();
+        selectedDeadline = null;
+      });
+    }
+  }
+
+  Future<void> selectDeadline(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null) {
+      setState(() {
+        selectedDeadline = picked;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    taskNameController.dispose();
+    skillsController.dispose();
+    channel?.sink.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Welcome, ${widget.userName}"),
+        actions: [
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.wb_sunny : Icons.nightlight_round),
+            onPressed: () => widget.toggleDarkMode(),
+          )
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          children: [
+            TextField(
+              controller: taskNameController,
+              decoration: InputDecoration(labelText: "Task Name", border: OutlineInputBorder()),
             ),
+            SizedBox(height: 10),
+            TextField(
+              controller: skillsController,
+              decoration: InputDecoration(labelText: "Skills (comma-separated)", border: OutlineInputBorder()),
+            ),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selectedDeadline == null
+                        ? "Select Deadline"
+                        : "Deadline: ${DateFormat('yyyy-MM-dd').format(selectedDeadline!)}",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.calendar_today),
+                  onPressed: () => selectDeadline(context),
+                ),
+              ],
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: sendTaskToServer,
+              child: Text("Send Task to Server"),
+            ),
+            SizedBox(height: 20),
+            Text(serverResponse, style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
