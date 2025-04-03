@@ -35,9 +35,9 @@ class _TaskAllocatorAppState extends State<TaskAllocatorApp> {
 class WelcomeScreen extends StatelessWidget {
   final Function toggleDarkMode;
   final bool isDarkMode;
-  WelcomeScreen({required this.toggleDarkMode, required this.isDarkMode});
-
   final TextEditingController nameController = TextEditingController();
+
+  WelcomeScreen({required this.toggleDarkMode, required this.isDarkMode});
 
   void navigateToDashboard(BuildContext context) {
     if (nameController.text.isNotEmpty) {
@@ -95,6 +95,7 @@ class TaskAllocatorScreen extends StatefulWidget {
   final String userName;
   final Function toggleDarkMode;
   final bool isDarkMode;
+
   TaskAllocatorScreen({required this.userName, required this.toggleDarkMode, required this.isDarkMode});
 
   @override
@@ -102,34 +103,57 @@ class TaskAllocatorScreen extends StatefulWidget {
 }
 
 class _TaskAllocatorScreenState extends State<TaskAllocatorScreen> {
-  final WebSocketChannel channel = IOWebSocketChannel.connect("ws://localhost:8765");
-  
+  WebSocketChannel? channel;
   List<Map<String, dynamic>> tasks = [];
   TextEditingController taskNameController = TextEditingController();
   TextEditingController skillsController = TextEditingController();
   DateTime? selectedDeadline;
-  String serverResponse = "";
+  String serverResponse = "No response yet";
 
   @override
   void initState() {
     super.initState();
-    channel.stream.listen((message) {
+    connectWebSocket();
+  }
+
+  void connectWebSocket() {
+    try {
+      channel = IOWebSocketChannel.connect("ws://localhost:8765");
+
+      channel!.stream.listen(
+        (message) {
+          setState(() {
+            serverResponse = "Server Response: $message";
+          });
+        },
+        onError: (error) {
+          setState(() {
+            serverResponse = "Error: Unable to connect to server";
+          });
+        },
+        onDone: () {
+          setState(() {
+            serverResponse = "Connection closed by server";
+          });
+        },
+      );
+    } catch (e) {
       setState(() {
-        serverResponse = "Server Response: $message";
+        serverResponse = "Connection failed: $e";
       });
-    });
+    }
   }
 
   void sendTaskToServer() {
-    if (taskNameController.text.isNotEmpty && selectedDeadline != null) {
+    if (taskNameController.text.isNotEmpty && selectedDeadline != null && channel != null) {
       Map<String, dynamic> taskData = {
         "task_name": taskNameController.text,
         "deadline": DateFormat('yyyy-MM-dd').format(selectedDeadline!),
         "skills": skillsController.text.split(",").map((s) => s.trim()).toList(),
       };
-      
+
       String jsonTask = jsonEncode(taskData);
-      channel.sink.add(jsonTask);
+      channel!.sink.add(jsonTask);
 
       setState(() {
         tasks.add(taskData);
@@ -156,7 +180,9 @@ class _TaskAllocatorScreenState extends State<TaskAllocatorScreen> {
 
   @override
   void dispose() {
-    channel.sink.close();
+    taskNameController.dispose();
+    skillsController.dispose();
+    channel?.sink.close();
     super.dispose();
   }
 
@@ -188,9 +214,14 @@ class _TaskAllocatorScreenState extends State<TaskAllocatorScreen> {
             SizedBox(height: 10),
             Row(
               children: [
-                Text(selectedDeadline == null
-                    ? "Select Deadline"
-                    : "Deadline: ${DateFormat('yyyy-MM-dd').format(selectedDeadline!)}"),
+                Expanded(
+                  child: Text(
+                    selectedDeadline == null
+                        ? "Select Deadline"
+                        : "Deadline: ${DateFormat('yyyy-MM-dd').format(selectedDeadline!)}",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
                 IconButton(
                   icon: Icon(Icons.calendar_today),
                   onPressed: () => selectDeadline(context),
@@ -203,7 +234,7 @@ class _TaskAllocatorScreenState extends State<TaskAllocatorScreen> {
               child: Text("Send Task to Server"),
             ),
             SizedBox(height: 20),
-            Text(serverResponse, style: TextStyle(color: Colors.green)),
+            Text(serverResponse, style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
