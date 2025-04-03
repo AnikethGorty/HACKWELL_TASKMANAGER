@@ -43,6 +43,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    let socket;
+
+function connectWebSocket() {
+    socket = new WebSocket('ws://localhost:8765');
+
+    socket.onopen = () => {
+        console.log("WebSocket connected");
+        document.getElementById('serverResponse').textContent = "Connected to server";
+    };
+
+    socket.onmessage = (event) => {
+        document.getElementById('serverResponse').textContent = event.data;
+    };
+
+    socket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        document.getElementById('serverResponse').textContent = "Connection error";
+    };
+
+    socket.onclose = () => {
+        console.log("WebSocket disconnected");
+        document.getElementById('serverResponse').textContent = "Disconnected";
+    };
+}
+
+// Call this when your page loads
+connectWebSocket();
+
+// Use this function to send tasks
+function sendTaskToServer(taskData) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(taskData));
+    } else {
+        console.error("WebSocket is not connected");
+        // Optionally reconnect
+        connectWebSocket();
+    }
+}
+
     function renderTaskAllocator() {
         let selectedDeadline = null;
 
