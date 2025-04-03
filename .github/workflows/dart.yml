@@ -16,4 +16,4 @@ jobs:
 
       - name: Install Dependencies
         working-directory: app
-        run: dart pub get  # Auto-install dependencies
+        run: flutter pub get  # Auto-install dependencies
