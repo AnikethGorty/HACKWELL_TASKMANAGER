@@ -8,3 +8,4 @@ datetime
 faker
 huggingface_hub
 sentence-transformers
+websockets
