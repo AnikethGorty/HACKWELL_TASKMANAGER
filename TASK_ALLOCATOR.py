@@ -7,6 +7,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from datetime import timedelta
 
 
+
+
 HF_KEY=os.getenv("HUGGINGFACE_TOKEN")
 
 client = InferenceClient(
@@ -19,6 +21,8 @@ client = InferenceClient(
 # Load model
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
+
+
 skillset = [
     "Welding", "PLC-Programming", "Hydraulics", "Electrical", "Pneumatics",
     "CNC-Operation", "Machining", "Fabrication", "Automation", "Instrumentation",
@@ -26,10 +30,16 @@ skillset = [
     "Laser-Cutting", "Carpentry", "Soldering", "Networking", "Motor-Repair"
 ]
 
-required_skills = []
-for _ in range(5):
-    skill = str(input("Enter a skill you need:\n"))
-    required_skills.append(skill)
+def get_latest_tasks():
+    """Retrieve tasks from the shared JSON file"""
+    try:
+        with open(TASKS_FILE, 'r') as f:
+            tasks = json.load(f)
+            return tasks
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+print(type(get_latest_tasks))
 
 for skill in required_skills:
     tempdict = {}  # Reset dictionary for each skill
